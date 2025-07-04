@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.teracrafts</groupId>
-    <artifactId>huefy-android</artifactId>
-    <version>1.0.4</version>
+    <artifactId>huefy-sdk-android</artifactId>
+    <version>1.0.5</version>
     <packaging>jar</packaging>
     
     <name>Huefy Android SDK</name>
@@ -40,13 +40,6 @@
             <url>https://central.sonatype.com/api/v1/publisher/deployments</url>
         </repository>
     </distributionManagement>
-    
-    <pluginRepositories>
-        <pluginRepository>
-            <id>central</id>
-            <url>https://repo.maven.apache.org/maven2</url>
-        </pluginRepository>
-    </pluginRepositories>
     
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
