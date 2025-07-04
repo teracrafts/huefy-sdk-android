@@ -17,7 +17,7 @@ import kotlin.math.pow
  */
 data class HuefyConfiguration(
     val apiKey: String,
-    val baseUrl: String = "https://api.huefy.com/api/v1/sdk",
+    val baseUrl: String = "https://api.huefy.dev/api/v1/sdk",
     val timeout: Long = 30_000,
     val retryAttempts: Int = 3,
     val retryDelay: Long = 1_000,

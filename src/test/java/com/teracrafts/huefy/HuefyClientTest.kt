@@ -48,7 +48,7 @@ class HuefyClientTest {
     fun testConfigurationDefaults() {
         val config = HuefyConfiguration(apiKey = "test-key")
         assertEquals("test-key", config.apiKey)
-        assertEquals("https://api.huefy.com/api/v1/sdk", config.baseUrl)
+        assertEquals("https://api.huefy.dev/api/v1/sdk", config.baseUrl)
         assertEquals(30_000, config.timeout)
         assertEquals(3, config.retryAttempts)
         assertEquals(1_000, config.retryDelay)
