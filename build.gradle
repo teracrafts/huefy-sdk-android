@@ -8,7 +8,7 @@ plugins {
 
 group = 'com.teracrafts'
 archivesBaseName = 'huefy-android'
-version = '1.0.4'
+version = '2.1.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
