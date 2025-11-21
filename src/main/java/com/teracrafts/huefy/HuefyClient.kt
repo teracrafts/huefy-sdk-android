@@ -17,12 +17,25 @@ import kotlin.math.pow
  */
 data class HuefyConfiguration(
     val apiKey: String,
-    val baseUrl: String = "https://api.huefy.dev/api/v1/sdk",
+    val baseUrl: String? = null,
+    val local: Boolean = false,
     val timeout: Long = 30_000,
     val retryAttempts: Int = 3,
     val retryDelay: Long = 1_000,
     val enableLogging: Boolean = false
-)
+) {
+    companion object {
+        const val PRODUCTION_HTTP_ENDPOINT = "https://api.huefy.dev/api/v1/sdk"
+        const val LOCAL_HTTP_ENDPOINT = "http://localhost:8080/api/v1/sdk"
+    }
+
+    /**
+     * Get the HTTP endpoint based on configuration
+     */
+    fun getHttpEndpoint(): String {
+        return baseUrl ?: if (local) LOCAL_HTTP_ENDPOINT else PRODUCTION_HTTP_ENDPOINT
+    }
+}
 
 /**
  * Main Huefy SDK client for sending template-based emails
@@ -193,7 +206,7 @@ class HuefyClient(private val configuration: HuefyConfiguration) {
         body: Any?,
         responseClass: Class<T>
     ): T = withContext(Dispatchers.IO) {
-        val url = "${configuration.baseUrl}$endpoint"
+        val url = "${configuration.getHttpEndpoint()}$endpoint"
         val requestBuilder = Request.Builder().url(url)
         
         when (method) {
