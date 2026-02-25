@@ -1,0 +1,65 @@
+package com.huefy.http
+
+import com.huefy.config.RetryConfig
+import com.huefy.errors.HuefyException
+import kotlinx.coroutines.delay
+import kotlin.math.min
+import kotlin.random.Random
+
+/**
+ * Handles retry logic with exponential backoff and jitter.
+ *
+ * Uses Kotlin coroutine [delay] for non-blocking waits between attempts.
+ */
+class RetryHandler(private val config: RetryConfig) {
+
+    /**
+     * Executes [block] with retry logic.
+     *
+     * On retryable failures, waits with exponential backoff plus jitter
+     * before the next attempt. Non-retryable failures are thrown immediately.
+     *
+     * @param block The suspend function to execute.
+     * @return The result of [block] if it succeeds within the allowed attempts.
+     * @throws HuefyException after all retry attempts are exhausted.
+     */
+    suspend fun <T> executeWithRetry(block: suspend () -> T): T {
+        var lastException: HuefyException? = null
+
+        for (attempt in 0..config.maxRetries) {
+            try {
+                return block()
+            } catch (e: HuefyException) {
+                lastException = e
+
+                if (!e.recoverable || attempt >= config.maxRetries) {
+                    throw e
+                }
+
+                if (e.statusCode != null && e.statusCode !in config.retryableStatusCodes) {
+                    throw e
+                }
+
+                val delayMs = calculateDelay(attempt)
+                delay(delayMs)
+            }
+        }
+
+        throw lastException ?: HuefyException.networkError("All retry attempts exhausted")
+    }
+
+    /**
+     * Calculates the delay for a given attempt using exponential backoff with
+     * full jitter.
+     *
+     * Formula: `random(0, min(maxDelay, baseDelay * 2^attempt))`
+     *
+     * @param attempt The zero-based attempt number.
+     * @return The delay in milliseconds.
+     */
+    internal fun calculateDelay(attempt: Int): Long {
+        val exponentialDelay = config.baseDelayMs * (1L shl attempt)
+        val cappedDelay = min(exponentialDelay, config.maxDelayMs)
+        return Random.nextLong(cappedDelay / 2, cappedDelay + 1)
+    }
+}
