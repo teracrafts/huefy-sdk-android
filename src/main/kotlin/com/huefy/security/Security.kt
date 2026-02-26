@@ -47,21 +47,21 @@ object Security {
      *
      * @param payload The request payload to sign.
      * @param secret The signing secret.
-     * @return The Base64-encoded HMAC signature.
+     * @return The hex-encoded HMAC signature.
      */
     fun hmacSign(payload: String, secret: String): String {
         val mac = Mac.getInstance(HMAC_ALGORITHM)
         val keySpec = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), HMAC_ALGORITHM)
         mac.init(keySpec)
         val hash = mac.doFinal(payload.toByteArray(Charsets.UTF_8))
-        return Base64.getEncoder().encodeToString(hash)
+        return hash.joinToString("") { "%02x".format(it) }
     }
 
     /**
      * Verifies an HMAC-SHA256 signature.
      *
      * @param payload The original payload.
-     * @param signature The signature to verify (Base64-encoded).
+     * @param signature The signature to verify (hex-encoded).
      * @param secret The signing secret.
      * @return `true` if the signature is valid.
      */
