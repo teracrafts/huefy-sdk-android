@@ -50,7 +50,12 @@ class CircuitBreaker(private val config: CircuitBreakerConfig) {
             }
             throw e
         } catch (e: Exception) {
-            onFailure()
+            // Only count network/IO errors as circuit breaker failures.
+            // Non-recoverable errors (e.g., IllegalArgumentException) should not
+            // trip the circuit breaker.
+            if (e is java.io.IOException || e is kotlinx.coroutines.TimeoutCancellationException) {
+                onFailure()
+            }
             throw e
         }
     }
