@@ -42,6 +42,22 @@ class RetryHandler(private val config: RetryConfig) {
 
                 val delayMs = calculateDelay(attempt)
                 delay(delayMs)
+            } catch (e: Exception) {
+                // Wrap raw Ktor/network exceptions (ConnectTimeoutException,
+                // SocketTimeoutException, IOException, etc.) as recoverable errors
+                // so the retry loop can handle them.
+                val wrapped = HuefyException.networkError(
+                    "Request failed: ${e.message}",
+                    e
+                )
+                lastException = wrapped
+
+                if (attempt >= config.maxRetries) {
+                    throw wrapped
+                }
+
+                val delayMs = calculateDelay(attempt)
+                delay(delayMs)
             }
         }
 
@@ -58,8 +74,9 @@ class RetryHandler(private val config: RetryConfig) {
      * @return The delay in milliseconds.
      */
     internal fun calculateDelay(attempt: Int): Long {
-        val exponentialDelay = config.baseDelayMs * (1L shl attempt)
+        val exponentialDelay = config.baseDelayMs * (1L shl attempt.coerceAtMost(30))
         val cappedDelay = min(exponentialDelay, config.maxDelayMs)
-        return Random.nextLong(cappedDelay / 2, cappedDelay + 1)
+        val jitterFactor = 0.75 + Random.nextDouble() * 0.5
+        return (cappedDelay * jitterFactor).toLong()
     }
 }
