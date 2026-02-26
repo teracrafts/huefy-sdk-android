@@ -68,7 +68,7 @@ data class RetryConfig(
  */
 data class CircuitBreakerConfig(
     val failureThreshold: Int = 5,
-    val resetTimeoutMs: Long = 60_000L,
+    val resetTimeoutMs: Long = 30_000L,
     val halfOpenMaxRequests: Int = 1
 ) {
     init {
