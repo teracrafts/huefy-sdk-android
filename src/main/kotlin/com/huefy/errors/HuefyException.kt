@@ -14,6 +14,7 @@ class HuefyException(
     val statusCode: Int? = null,
     val recoverable: Boolean = false,
     val context: Map<String, String> = emptyMap(),
+    val requestId: String? = null,
     cause: Throwable? = null
 ) : RuntimeException(message, cause) {
 
@@ -117,28 +118,49 @@ class HuefyException(
         /**
          * Creates an exception from an HTTP status code.
          */
-        fun fromStatusCode(statusCode: Int, message: String): HuefyException {
+        fun fromStatusCode(statusCode: Int, message: String, requestId: String? = null): HuefyException {
             return when (statusCode) {
-                401 -> authenticationError(message)
+                401 -> HuefyException(
+                    message = message,
+                    errorCode = ErrorCode.AUTHENTICATION_ERROR,
+                    statusCode = 401,
+                    recoverable = false,
+                    requestId = requestId
+                )
                 403 -> HuefyException(
                     message = message,
                     errorCode = ErrorCode.FORBIDDEN_ERROR,
                     statusCode = 403,
-                    recoverable = false
+                    recoverable = false,
+                    requestId = requestId
                 )
                 404 -> HuefyException(
                     message = message,
                     errorCode = ErrorCode.NOT_FOUND_ERROR,
                     statusCode = 404,
-                    recoverable = false
+                    recoverable = false,
+                    requestId = requestId
                 )
-                429 -> rateLimitError()
-                in 500..599 -> serverError(message, statusCode)
+                429 -> HuefyException(
+                    message = "Rate limit exceeded",
+                    errorCode = ErrorCode.RATE_LIMIT_ERROR,
+                    statusCode = 429,
+                    recoverable = true,
+                    requestId = requestId
+                )
+                in 500..599 -> HuefyException(
+                    message = message,
+                    errorCode = ErrorCode.SERVER_ERROR,
+                    statusCode = statusCode,
+                    recoverable = true,
+                    requestId = requestId
+                )
                 else -> HuefyException(
                     message = message,
                     errorCode = ErrorCode.UNKNOWN_ERROR,
                     statusCode = statusCode,
-                    recoverable = false
+                    recoverable = false,
+                    requestId = requestId
                 )
             }
         }
