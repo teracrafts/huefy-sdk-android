@@ -1,8 +1,10 @@
 package com.huefy.http
 
 import com.huefy.config.HuefyConfig
+import com.huefy.errors.ErrorCode
 import com.huefy.errors.ErrorSanitizer
 import com.huefy.errors.HuefyException
+import com.huefy.security.Security
 import com.huefy.utils.Version
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -33,6 +35,12 @@ class HttpClient(private val config: HuefyConfig) {
     private val retryHandler = RetryHandler(config.retryConfig)
     private val circuitBreaker = CircuitBreaker(config.circuitBreakerConfig)
 
+    @Volatile
+    private var currentApiKey: String = config.apiKey
+
+    @Volatile
+    private var rotatedToSecondary: Boolean = false
+
     /**
      * Performs a GET request.
      *
@@ -57,11 +65,13 @@ class HttpClient(private val config: HuefyConfig) {
      */
     suspend fun post(path: String, body: JsonObject? = null): JsonObject {
         return executeWithResilience {
+            // Serialize body once; use the same string for both signing and sending
+            val bodyString = body?.let { json.encodeToString(JsonObject.serializer(), it) } ?: ""
             val response = client.post(buildUrl(path)) {
-                applyHeaders()
-                body?.let {
+                applyHeaders(bodyString)
+                if (body != null) {
                     contentType(ContentType.Application.Json)
-                    setBody(it.toString())
+                    setBody(bodyString)
                 }
             }
             handleResponse(response)
@@ -77,11 +87,13 @@ class HttpClient(private val config: HuefyConfig) {
      */
     suspend fun put(path: String, body: JsonObject? = null): JsonObject {
         return executeWithResilience {
+            // Serialize body once; use the same string for both signing and sending
+            val bodyString = body?.let { json.encodeToString(JsonObject.serializer(), it) } ?: ""
             val response = client.put(buildUrl(path)) {
-                applyHeaders()
-                body?.let {
+                applyHeaders(bodyString)
+                if (body != null) {
                     contentType(ContentType.Application.Json)
-                    setBody(it.toString())
+                    setBody(bodyString)
                 }
             }
             handleResponse(response)
@@ -116,15 +128,26 @@ class HttpClient(private val config: HuefyConfig) {
         return "$base/$cleanPath"
     }
 
-    private fun HttpRequestBuilder.applyHeaders() {
-        header("X-API-Key", config.apiKey)
+    private fun HttpRequestBuilder.applyHeaders(bodyString: String = "") {
+        header("X-API-Key", currentApiKey)
         header("User-Agent", "huefy-kotlin/${Version.SDK_VERSION}")
         header("Accept", "application/json")
+
+        // Add HMAC signing headers when request signing is enabled
+        if (config.enableRequestSigning) {
+            val timestamp = System.currentTimeMillis().toString()
+            val message = "$timestamp.$bodyString"
+            val signature = Security.hmacSign(message, currentApiKey)
+            header("X-Timestamp", timestamp)
+            header("X-Signature", signature)
+            header("X-Key-Id", currentApiKey.take(8))
+        }
     }
 
     private suspend fun handleResponse(response: HttpResponse): JsonObject {
         val bodyText = response.bodyAsText()
         val statusCode = response.status.value
+        val requestId = response.headers["X-Request-Id"]
 
         if (statusCode in 200..299) {
             return try {
@@ -137,18 +160,36 @@ class HttpClient(private val config: HuefyConfig) {
             }
         }
 
+        // Handle 401 with key rotation: swap to secondary key and signal retry
+        if (statusCode == 401
+            && !rotatedToSecondary
+            && !config.secondaryApiKey.isNullOrEmpty()
+        ) {
+            rotatedToSecondary = true
+            currentApiKey = config.secondaryApiKey!!
+            // Throw a new recoverable exception so the retry handler re-executes
+            // the request with the rotated key. statusCode is intentionally omitted
+            // so the retry handler does not reject it as a non-retryable status.
+            throw HuefyException(
+                message = "Primary API key rejected, rotating to secondary key",
+                errorCode = ErrorCode.AUTHENTICATION_ERROR,
+                recoverable = true,
+                requestId = requestId
+            )
+        }
+
         val message = if (config.enableErrorSanitization) {
             ErrorSanitizer.sanitize(bodyText)
         } else {
             bodyText
         }
 
-        throw HuefyException.fromStatusCode(statusCode, message)
+        throw HuefyException.fromStatusCode(statusCode, message, requestId)
     }
 
     private suspend fun <T> executeWithResilience(block: suspend () -> T): T {
-        return circuitBreaker.execute {
-            retryHandler.executeWithRetry { block() }
+        return retryHandler.executeWithRetry {
+            circuitBreaker.execute { block() }
         }
     }
 }
