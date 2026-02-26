@@ -21,9 +21,12 @@ import kotlinx.serialization.json.JsonObject
  * client.close()
  * ```
  */
-class HuefyClient(private val config: HuefyConfig) {
+open class HuefyClient(private val config: HuefyConfig) : java.io.Closeable {
 
     private val httpClient: HttpClient = HttpClient(config)
+
+    @Volatile
+    private var closed = false
 
     /**
      * Performs a health check against the API.
@@ -32,12 +35,13 @@ class HuefyClient(private val config: HuefyConfig) {
      * @throws HuefyException if the request fails.
      */
     suspend fun healthCheck(): HealthResponse {
+        check(!closed) { "Client has been closed" }
         return try {
             withTimeout(config.timeout) {
                 val response = httpClient.get("/health")
                 HealthResponse(
-                    status = "ok",
-                    version = Version.SDK_VERSION,
+                    status = response["status"]?.toString()?.trim('"') ?: "unknown",
+                    version = response["version"]?.toString()?.trim('"') ?: "unknown",
                     apiVersion = response["apiVersion"]?.toString()?.trim('"') ?: "unknown"
                 )
             }
@@ -62,6 +66,7 @@ class HuefyClient(private val config: HuefyConfig) {
         path: String,
         body: JsonObject? = null
     ): JsonObject {
+        check(!closed) { "Client has been closed" }
         return withTimeout(config.timeout) {
             when (method.uppercase()) {
                 "GET" -> httpClient.get(path)
@@ -79,7 +84,8 @@ class HuefyClient(private val config: HuefyConfig) {
     /**
      * Closes the underlying HTTP client and releases resources.
      */
-    fun close() {
+    override fun close() {
+        closed = true
         httpClient.close()
     }
 }
