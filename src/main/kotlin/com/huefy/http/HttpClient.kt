@@ -11,6 +11,8 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
@@ -40,6 +42,8 @@ class HttpClient(private val config: HuefyConfig) {
 
     @Volatile
     private var rotatedToSecondary: Boolean = false
+
+    private val keyRotationMutex = Mutex()
 
     /**
      * Performs a GET request.
@@ -160,13 +164,17 @@ class HttpClient(private val config: HuefyConfig) {
             }
         }
 
-        // Handle 401 with key rotation: swap to secondary key and signal retry
+        // Handle 401 with key rotation: only the first coroutine rotates the key.
         if (statusCode == 401
             && !rotatedToSecondary
             && !config.secondaryApiKey.isNullOrEmpty()
         ) {
-            rotatedToSecondary = true
-            currentApiKey = config.secondaryApiKey!!
+            keyRotationMutex.withLock {
+                if (!rotatedToSecondary) {
+                    rotatedToSecondary = true
+                    currentApiKey = config.secondaryApiKey!!
+                }
+            }
             // Throw a new recoverable exception so the retry handler re-executes
             // the request with the rotated key. statusCode is intentionally omitted
             // so the retry handler does not reject it as a non-retryable status.
