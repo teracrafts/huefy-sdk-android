@@ -22,15 +22,12 @@ import java.util.logging.Logger
  * // Send single email
  * val response = client.sendEmail("welcome", mapOf("name" to "John"), "john@example.com")
  *
- * // Send with provider
- * val response = client.sendEmail("welcome", mapOf("name" to "John"), "john@example.com", EmailProvider.SENDGRID)
- *
- * // Bulk emails
- * val requests = listOf(
- *     SendEmailRequest("welcome", "alice@example.com", mapOf("name" to "Alice")),
- *     SendEmailRequest("welcome", "bob@example.com", mapOf("name" to "Bob"))
+ * // Bulk emails with shared template
+ * val recipients = listOf(
+ *     BulkRecipient(email = "alice@example.com", data = mapOf("name" to "Alice")),
+ *     BulkRecipient(email = "bob@example.com", data = mapOf("name" to "Bob"))
  * )
- * val results = client.sendBulkEmails(requests)
+ * val result = client.sendBulkEmails("welcome", recipients)
  *
  * client.close()
  * ```
@@ -39,17 +36,12 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
 
     companion object {
         private const val EMAILS_SEND_PATH = "/emails/send"
+        private const val EMAILS_SEND_BULK_PATH = "/emails/send-bulk"
         private val logger = Logger.getLogger(HuefyEmailClient::class.java.name)
     }
 
     /**
      * Sends an email using the default provider (SES).
-     *
-     * @param templateKey the template key to use
-     * @param data the template data variables
-     * @param recipient the recipient email address
-     * @return the send email response
-     * @throws HuefyException if validation fails or the request fails
      */
     suspend fun sendEmail(
         templateKey: String,
@@ -61,13 +53,6 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
 
     /**
      * Sends an email using the specified provider.
-     *
-     * @param templateKey the template key to use
-     * @param data the template data variables
-     * @param recipient the recipient email address
-     * @param provider the email provider (null for default SES)
-     * @return the send email response
-     * @throws HuefyException if validation fails or the request fails
      */
     suspend fun sendEmail(
         templateKey: String,
@@ -75,7 +60,6 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
         recipient: String,
         provider: EmailProvider? = null
     ): SendEmailResponse {
-        // Validate input
         val errors = EmailValidators.validateSendEmailInput(templateKey, data, recipient)
         if (errors.isNotEmpty()) {
             throw HuefyException(
@@ -85,33 +69,49 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
-        // Check template data for PII and warn (matching Go SDK behavior)
         for ((key, value) in data) {
             val piiTypes = Security.detectPii(value)
             if (piiTypes.isNotEmpty()) {
-                logger.warning("Potential PII detected in template data field '$key': $piiTypes. " +
-                    "Consider removing or encrypting these fields.")
+                logger.warning("Potential PII detected in template data field '$key': $piiTypes.")
             }
         }
 
         return try {
-            // Build request body
             val body = buildJsonObject {
-                put("template_key", templateKey.trim())
+                put("templateKey", templateKey.trim())
                 put("recipient", recipient.trim())
                 putJsonObject("data") {
                     data.forEach { (key, value) -> put(key, value) }
                 }
-                provider?.let { put("provider", it.value) }
+                provider?.let { put("providerType", it.value) }
             }
 
             val response = request("POST", EMAILS_SEND_PATH, body)
 
+            val dataNode = response["data"]?.jsonObject
+                ?: throw HuefyException.networkError("Missing data in response", null)
+
+            val recipientsList = dataNode["recipients"]?.jsonArray?.map { r ->
+                val rObj = r.jsonObject
+                RecipientStatus(
+                    email = rObj["email"]?.jsonPrimitive?.contentOrNull ?: "",
+                    status = rObj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                    messageId = rObj["messageId"]?.jsonPrimitive?.contentOrNull,
+                    error = rObj["error"]?.jsonPrimitive?.contentOrNull,
+                    sentAt = rObj["sentAt"]?.jsonPrimitive?.contentOrNull,
+                )
+            } ?: emptyList()
+
             SendEmailResponse(
                 success = response["success"]?.jsonPrimitive?.booleanOrNull ?: false,
-                message = response["message"]?.jsonPrimitive?.contentOrNull ?: "",
-                messageId = response["message_id"]?.jsonPrimitive?.contentOrNull ?: "",
-                provider = response["provider"]?.jsonPrimitive?.contentOrNull ?: ""
+                data = SendEmailResponseData(
+                    emailId = dataNode["emailId"]?.jsonPrimitive?.contentOrNull ?: "",
+                    status = dataNode["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                    recipients = recipientsList,
+                    scheduledAt = dataNode["scheduledAt"]?.jsonPrimitive?.contentOrNull,
+                    sentAt = dataNode["sentAt"]?.jsonPrimitive?.contentOrNull,
+                ),
+                correlationId = response["correlationId"]?.jsonPrimitive?.contentOrNull ?: "",
             )
         } catch (e: HuefyException) {
             throw e
@@ -121,17 +121,27 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
     }
 
     /**
-     * Sends multiple emails in bulk.
+     * Sends multiple emails in bulk using a shared template.
      *
-     * Each request is sent independently. Failures for individual emails
-     * do not prevent remaining emails from being sent.
-     *
-     * @param requests the list of email requests to send
-     * @return a list of results for each email
-     * @throws HuefyException if the bulk count validation fails
+     * @param templateKey the template key to use for all recipients
+     * @param recipients the list of bulk recipients
+     * @param fromEmail optional sender email address
+     * @param fromName optional sender name
+     * @param providerType optional email provider type
+     * @param batchSize optional batch size
+     * @param correlationId optional correlation ID
+     * @return the bulk send response
      */
-    suspend fun sendBulkEmails(requests: List<SendEmailRequest>): List<BulkEmailResult> {
-        val countError = EmailValidators.validateBulkCount(requests.size)
+    suspend fun sendBulkEmails(
+        templateKey: String,
+        recipients: List<BulkRecipient>,
+        fromEmail: String? = null,
+        fromName: String? = null,
+        providerType: String? = null,
+        batchSize: Int? = null,
+        correlationId: String? = null,
+    ): SendBulkEmailsResponse {
+        val countError = EmailValidators.validateBulkCount(recipients.size)
         if (countError != null) {
             throw HuefyException(
                 message = countError,
@@ -140,37 +150,66 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
-        val results = mutableListOf<BulkEmailResult>()
-
-        for (emailRequest in requests) {
-            try {
-                val response = sendEmail(
-                    templateKey = emailRequest.templateKey,
-                    data = emailRequest.data,
-                    recipient = emailRequest.recipient,
-                    provider = emailRequest.provider
-                )
-                results.add(
-                    BulkEmailResult(
-                        email = emailRequest.recipient,
-                        success = true,
-                        result = response
-                    )
-                )
-            } catch (e: HuefyException) {
-                results.add(
-                    BulkEmailResult(
-                        email = emailRequest.recipient,
-                        success = false,
-                        error = BulkEmailError(
-                            message = e.message ?: "Unknown error",
-                            code = e.errorCode.name
-                        )
-                    )
-                )
+        return try {
+            val body = buildJsonObject {
+                put("templateKey", templateKey.trim())
+                putJsonArray("recipients") {
+                    recipients.forEach { r ->
+                        addJsonObject {
+                            put("email", r.email)
+                            r.type?.let { put("type", it) }
+                            r.data?.let { d ->
+                                putJsonObject("data") {
+                                    d.forEach { (k, v) -> put(k, v) }
+                                }
+                            }
+                        }
+                    }
+                }
+                fromEmail?.let { put("fromEmail", it) }
+                fromName?.let { put("fromName", it) }
+                providerType?.let { put("providerType", it) }
+                batchSize?.let { put("batchSize", it) }
+                correlationId?.let { put("correlationId", it) }
             }
-        }
 
-        return results
+            val response = request("POST", EMAILS_SEND_BULK_PATH, body)
+
+            val dataNode = response["data"]?.jsonObject
+                ?: throw HuefyException.networkError("Missing data in response", null)
+
+            val recipientsList = dataNode["recipients"]?.jsonArray?.map { r ->
+                val rObj = r.jsonObject
+                RecipientStatus(
+                    email = rObj["email"]?.jsonPrimitive?.contentOrNull ?: "",
+                    status = rObj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                    messageId = rObj["messageId"]?.jsonPrimitive?.contentOrNull,
+                    error = rObj["error"]?.jsonPrimitive?.contentOrNull,
+                    sentAt = rObj["sentAt"]?.jsonPrimitive?.contentOrNull,
+                )
+            } ?: emptyList()
+
+            SendBulkEmailsResponse(
+                success = response["success"]?.jsonPrimitive?.booleanOrNull ?: false,
+                data = SendBulkEmailsResponseData(
+                    batchId = dataNode["batchId"]?.jsonPrimitive?.contentOrNull ?: "",
+                    status = dataNode["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                    templateKey = dataNode["templateKey"]?.jsonPrimitive?.contentOrNull ?: "",
+                    totalRecipients = dataNode["totalRecipients"]?.jsonPrimitive?.intOrNull ?: 0,
+                    processedCount = dataNode["processedCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                    successCount = dataNode["successCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                    failureCount = dataNode["failureCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                    suppressedCount = dataNode["suppressedCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                    startedAt = dataNode["startedAt"]?.jsonPrimitive?.contentOrNull ?: "",
+                    completedAt = dataNode["completedAt"]?.jsonPrimitive?.contentOrNull,
+                    recipients = recipientsList,
+                ),
+                correlationId = response["correlationId"]?.jsonPrimitive?.contentOrNull ?: "",
+            )
+        } catch (e: HuefyException) {
+            throw e
+        } catch (e: Exception) {
+            throw HuefyException.networkError("Failed to send bulk emails: ${e.message}", e)
+        }
     }
 }
