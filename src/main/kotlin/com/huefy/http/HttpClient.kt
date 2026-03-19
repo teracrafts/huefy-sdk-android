@@ -1,11 +1,13 @@
 package com.huefy.http
 
 import com.huefy.config.HuefyConfig
+import com.huefy.config.RateLimitInfo
 import com.huefy.errors.ErrorCode
 import com.huefy.errors.ErrorSanitizer
 import com.huefy.errors.HuefyException
 import com.huefy.security.Security
 import com.huefy.utils.Version
+import java.time.Instant
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
@@ -154,6 +156,7 @@ class HttpClient(private val config: HuefyConfig) {
         val requestId = response.headers["X-Request-Id"]
 
         if (statusCode in 200..299) {
+            parseRateLimitHeaders(response)
             return try {
                 json.decodeFromString<JsonObject>(bodyText)
             } catch (e: Exception) {
@@ -193,6 +196,29 @@ class HttpClient(private val config: HuefyConfig) {
         }
 
         throw HuefyException.fromStatusCode(statusCode, message, requestId)
+    }
+
+    private fun parseRateLimitHeaders(response: HttpResponse) {
+        if (config.onRateLimitUpdate == null && config.onRateLimitWarning == null) return
+
+        val limitHeader = response.headers["X-RateLimit-Limit"] ?: return
+        val remainingHeader = response.headers["X-RateLimit-Remaining"] ?: return
+        val resetHeader = response.headers["X-RateLimit-Reset"] ?: return
+
+        try {
+            val limit = limitHeader.toInt()
+            val remaining = remainingHeader.toInt()
+            val resetAt = Instant.ofEpochSecond(resetHeader.toLong())
+            val info = RateLimitInfo(limit, remaining, resetAt)
+
+            config.onRateLimitUpdate?.invoke(info)
+
+            if (config.onRateLimitWarning != null && limit > 0 && remaining < limit * 0.2) {
+                config.onRateLimitWarning.invoke(info)
+            }
+        } catch (_: NumberFormatException) {
+            // Ignore unparseable rate limit headers
+        }
     }
 
     private suspend fun <T> executeWithResilience(block: suspend () -> T): T {
