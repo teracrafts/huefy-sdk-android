@@ -4,29 +4,80 @@ data class SendEmailRequest(
     val templateKey: String,
     val recipient: String,
     val data: Map<String, String>,
-    val provider: EmailProvider? = null,
+    val providerType: String? = null,
+    val fromEmail: String? = null,
+    val fromName: String? = null,
+    val correlationId: String? = null,
+)
+
+data class RecipientStatus(
+    val email: String,
+    val status: String,
+    val messageId: String? = null,
+    val error: String? = null,
+    val sentAt: String? = null,
+)
+
+data class SendEmailResponseData(
+    val emailId: String,
+    val status: String,
+    val recipients: List<RecipientStatus>,
+    val scheduledAt: String? = null,
+    val sentAt: String? = null,
 )
 
 data class SendEmailResponse(
     val success: Boolean,
-    val message: String,
-    val messageId: String,
-    val provider: String,
+    val data: SendEmailResponseData,
+    val correlationId: String,
 )
 
-data class BulkEmailResult(
+data class BulkRecipient(
     val email: String,
-    val success: Boolean,
-    val result: SendEmailResponse? = null,
-    val error: BulkEmailError? = null,
+    val type: String? = null,
+    val data: Map<String, String>? = null,
 )
 
-data class BulkEmailError(val message: String, val code: String)
+data class SendBulkEmailsRequest(
+    val templateKey: String,
+    val recipients: List<BulkRecipient>,
+    val fromEmail: String? = null,
+    val fromName: String? = null,
+    val providerType: String? = null,
+    val batchSize: Int? = null,
+    val correlationId: String? = null,
+)
 
-data class HealthResponse(
+data class SendBulkEmailsResponseData(
+    val batchId: String,
+    val status: String,
+    val templateKey: String,
+    val totalRecipients: Int,
+    val processedCount: Int = 0,
+    val successCount: Int,
+    val failureCount: Int,
+    val suppressedCount: Int,
+    val startedAt: String,
+    val completedAt: String? = null,
+    val recipients: List<RecipientStatus>,
+)
+
+data class SendBulkEmailsResponse(
+    val success: Boolean,
+    val data: SendBulkEmailsResponseData,
+    val correlationId: String,
+)
+
+data class HealthResponseData(
     val status: String,
     val timestamp: String,
     val version: String,
+)
+
+data class HealthResponse(
+    val success: Boolean,
+    val data: HealthResponseData,
+    val correlationId: String,
 ) {
-    fun isHealthy(): Boolean = status.equals("ok", ignoreCase = true)
+    fun isHealthy(): Boolean = data.status.equals("healthy", ignoreCase = true) || data.status.equals("ok", ignoreCase = true)
 }
