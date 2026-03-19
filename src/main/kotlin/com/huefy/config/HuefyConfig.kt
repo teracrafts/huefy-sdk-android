@@ -1,6 +1,16 @@
 package com.huefy.config
 
 import kotlinx.serialization.Serializable
+import java.time.Instant
+
+/**
+ * Rate limit information parsed from API response headers.
+ *
+ * @property limit     the maximum number of requests allowed in the window
+ * @property remaining the number of requests remaining in the current window
+ * @property resetAt   the instant at which the rate limit window resets
+ */
+data class RateLimitInfo(val limit: Int, val remaining: Int, val resetAt: Instant)
 
 /**
  * Configuration for the Huefy SDK client.
@@ -22,7 +32,9 @@ data class HuefyConfig(
     val circuitBreakerConfig: CircuitBreakerConfig = CircuitBreakerConfig(),
     val secondaryApiKey: String? = null,
     val enableRequestSigning: Boolean = false,
-    val enableErrorSanitization: Boolean = true
+    val enableErrorSanitization: Boolean = true,
+    val onRateLimitUpdate: ((RateLimitInfo) -> Unit)? = null,
+    val onRateLimitWarning: ((RateLimitInfo) -> Unit)? = null
 ) {
     /**
      * Resolves the effective base URL.
