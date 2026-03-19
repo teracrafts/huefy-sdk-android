@@ -4,10 +4,15 @@ import com.huefy.config.HuefyConfig
 import com.huefy.errors.ErrorCode
 import com.huefy.errors.HuefyException
 import com.huefy.http.HttpClient
+import com.huefy.models.HealthResponse
+import com.huefy.models.HealthResponseData
 import com.huefy.utils.Version
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * Main client for the Huefy SDK.
@@ -39,10 +44,16 @@ open class HuefyClient(private val config: HuefyConfig) : java.io.Closeable {
         return try {
             withTimeout(config.timeout) {
                 val response = httpClient.get("/health")
+                val dataNode = response["data"]?.jsonObject
+                    ?: throw HuefyException.networkError("Missing data in health response", null)
                 HealthResponse(
-                    status = response["status"]?.toString()?.trim('"') ?: "unknown",
-                    version = response["version"]?.toString()?.trim('"') ?: "unknown",
-                    apiVersion = response["apiVersion"]?.toString()?.trim('"') ?: "unknown"
+                    success = response["success"]?.jsonPrimitive?.booleanOrNull ?: false,
+                    data = HealthResponseData(
+                        status = dataNode["status"]?.jsonPrimitive?.contentOrNull ?: "unknown",
+                        timestamp = dataNode["timestamp"]?.jsonPrimitive?.contentOrNull ?: "",
+                        version = dataNode["version"]?.jsonPrimitive?.contentOrNull ?: "unknown",
+                    ),
+                    correlationId = response["correlationId"]?.jsonPrimitive?.contentOrNull ?: "",
                 )
             }
         } catch (e: HuefyException) {
@@ -90,9 +101,3 @@ open class HuefyClient(private val config: HuefyConfig) : java.io.Closeable {
     }
 }
 
-@Serializable
-data class HealthResponse(
-    val status: String,
-    val version: String,
-    val apiVersion: String
-)
