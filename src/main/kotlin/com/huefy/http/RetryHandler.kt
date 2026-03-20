@@ -66,9 +66,7 @@ class RetryHandler(private val config: RetryConfig) {
 
     /**
      * Calculates the delay for a given attempt using exponential backoff with
-     * full jitter.
-     *
-     * Formula: `random(0, min(maxDelay, baseDelay * 2^attempt))`
+     * ±20% multiplicative jitter.
      *
      * @param attempt The zero-based attempt number.
      * @return The delay in milliseconds.
@@ -76,7 +74,7 @@ class RetryHandler(private val config: RetryConfig) {
     internal fun calculateDelay(attempt: Int): Long {
         val exponentialDelay = config.baseDelayMs * (1L shl attempt.coerceAtMost(30))
         val cappedDelay = min(exponentialDelay, config.maxDelayMs)
-        val jitterFactor = 0.75 + Random.nextDouble() * 0.5
+        val jitterFactor = 0.8 + Random.nextDouble() * 0.4
         return (cappedDelay * jitterFactor).toLong()
     }
 }
