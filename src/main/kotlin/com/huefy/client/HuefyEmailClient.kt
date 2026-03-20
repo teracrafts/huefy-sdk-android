@@ -150,6 +150,17 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
+        recipients.forEachIndexed { i, r ->
+            val emailErr = EmailValidators.validateEmail(r.email)
+            if (emailErr != null) {
+                throw HuefyException(
+                    message = "recipients[$i]: $emailErr",
+                    errorCode = ErrorCode.VALIDATION_ERROR,
+                    recoverable = false
+                )
+            }
+        }
+
         return try {
             val body = buildJsonObject {
                 put("templateKey", templateKey.trim())
