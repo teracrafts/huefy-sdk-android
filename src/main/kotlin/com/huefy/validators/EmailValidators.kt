@@ -11,7 +11,7 @@ object EmailValidators {
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
     private const val MAX_EMAIL_LENGTH = 254
     private const val MAX_TEMPLATE_KEY_LENGTH = 100
-    private const val MAX_BULK_EMAILS = 100
+    private const val MAX_BULK_EMAILS = 1000
 
     /**
      * Validates a recipient email address.
