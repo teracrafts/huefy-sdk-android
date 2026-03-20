@@ -54,14 +54,14 @@ data class HuefyConfig(
  * Configuration for retry behavior on failed requests.
  *
  * @property maxRetries Maximum number of retry attempts. Defaults to 3.
- * @property baseDelayMs Base delay in milliseconds for exponential backoff. Defaults to 1000.
- * @property maxDelayMs Maximum delay in milliseconds between retries. Defaults to 30000.
+ * @property baseDelayMs Base delay in milliseconds for exponential backoff. Defaults to 500.
+ * @property maxDelayMs Maximum delay in milliseconds between retries. Defaults to 10000.
  * @property retryableStatusCodes HTTP status codes that trigger a retry.
  */
 data class RetryConfig(
     val maxRetries: Int = 3,
-    val baseDelayMs: Long = 1_000L,
-    val maxDelayMs: Long = 30_000L,
+    val baseDelayMs: Long = 500L,
+    val maxDelayMs: Long = 10_000L,
     val retryableStatusCodes: Set<Int> = setOf(408, 429, 500, 502, 503, 504)
 ) {
     init {
