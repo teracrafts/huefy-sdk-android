@@ -20,14 +20,20 @@ import java.util.logging.Logger
  * val client = HuefyEmailClient(HuefyConfig(apiKey = "your-api-key"))
  *
  * // Send single email
- * val response = client.sendEmail("welcome", mapOf("name" to "John"), "john@example.com")
+ * val response = client.sendEmail(SendEmailRequest(
+ *     templateKey = "welcome",
+ *     data = mapOf("name" to "John"),
+ *     recipient = "john@example.com",
+ * ))
  *
  * // Bulk emails with shared template
- * val recipients = listOf(
- *     BulkRecipient(email = "alice@example.com", data = mapOf("name" to "Alice")),
- *     BulkRecipient(email = "bob@example.com", data = mapOf("name" to "Bob"))
- * )
- * val result = client.sendBulkEmails("welcome", recipients)
+ * val result = client.sendBulkEmails(SendBulkEmailsRequest(
+ *     templateKey = "welcome",
+ *     recipients = listOf(
+ *         BulkRecipient(email = "alice@example.com", data = mapOf("name" to "Alice")),
+ *         BulkRecipient(email = "bob@example.com", data = mapOf("name" to "Bob")),
+ *     ),
+ * ))
  *
  * client.close()
  * ```
@@ -41,26 +47,13 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
     }
 
     /**
-     * Sends an email using the default provider (SES).
+     * Sends an email using a template.
+     *
+     * @param request the email request containing templateKey, data, recipient, and optional provider
+     * @return the send email response
      */
-    suspend fun sendEmail(
-        templateKey: String,
-        data: Map<String, String>,
-        recipient: String
-    ): SendEmailResponse {
-        return sendEmail(templateKey, data, recipient, null)
-    }
-
-    /**
-     * Sends an email using the specified provider.
-     */
-    suspend fun sendEmail(
-        templateKey: String,
-        data: Map<String, String>,
-        recipient: String,
-        provider: EmailProvider? = null
-    ): SendEmailResponse {
-        val errors = EmailValidators.validateSendEmailInput(templateKey, data, recipient)
+    suspend fun sendEmail(request: SendEmailRequest): SendEmailResponse {
+        val errors = EmailValidators.validateSendEmailInput(request.templateKey, request.data, request.recipient)
         if (errors.isNotEmpty()) {
             throw HuefyException(
                 message = "Validation failed: ${errors.joinToString("; ")}",
@@ -69,7 +62,7 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
-        for ((key, value) in data) {
+        for ((key, value) in request.data) {
             val piiTypes = Security.detectPii(value)
             if (piiTypes.isNotEmpty()) {
                 logger.warning("Potential PII detected in template data field '$key': $piiTypes.")
@@ -78,12 +71,12 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
 
         return try {
             val body = buildJsonObject {
-                put("templateKey", templateKey.trim())
-                put("recipient", recipient.trim())
+                put("templateKey", request.templateKey.trim())
+                put("recipient", request.recipient.trim())
                 putJsonObject("data") {
-                    data.forEach { (key, value) -> put(key, value) }
+                    request.data.forEach { (key, value) -> put(key, value) }
                 }
-                provider?.let { put("providerType", it.value) }
+                request.provider?.let { put("providerType", it.value) }
             }
 
             val response = request("POST", EMAILS_SEND_PATH, body)
@@ -123,25 +116,11 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
     /**
      * Sends multiple emails in bulk using a shared template.
      *
-     * @param templateKey the template key to use for all recipients
-     * @param recipients the list of bulk recipients
-     * @param fromEmail optional sender email address
-     * @param fromName optional sender name
-     * @param providerType optional email provider type
-     * @param batchSize optional batch size
-     * @param correlationId optional correlation ID
+     * @param request the bulk email request containing templateKey, recipients, and optional provider
      * @return the bulk send response
      */
-    suspend fun sendBulkEmails(
-        templateKey: String,
-        recipients: List<BulkRecipient>,
-        fromEmail: String? = null,
-        fromName: String? = null,
-        providerType: String? = null,
-        batchSize: Int? = null,
-        correlationId: String? = null,
-    ): SendBulkEmailsResponse {
-        val countError = EmailValidators.validateBulkCount(recipients.size)
+    suspend fun sendBulkEmails(request: SendBulkEmailsRequest): SendBulkEmailsResponse {
+        val countError = EmailValidators.validateBulkCount(request.recipients.size)
         if (countError != null) {
             throw HuefyException(
                 message = countError,
@@ -150,7 +129,7 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
-        recipients.forEachIndexed { i, r ->
+        request.recipients.forEachIndexed { i, r ->
             val emailErr = EmailValidators.validateEmail(r.email)
             if (emailErr != null) {
                 throw HuefyException(
@@ -163,9 +142,9 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
 
         return try {
             val body = buildJsonObject {
-                put("templateKey", templateKey.trim())
+                put("templateKey", request.templateKey.trim())
                 putJsonArray("recipients") {
-                    recipients.forEach { r ->
+                    request.recipients.forEach { r ->
                         addJsonObject {
                             put("email", r.email)
                             r.type?.let { put("type", it) }
@@ -177,11 +156,7 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                         }
                     }
                 }
-                fromEmail?.let { put("fromEmail", it) }
-                fromName?.let { put("fromName", it) }
-                providerType?.let { put("providerType", it) }
-                batchSize?.let { put("batchSize", it) }
-                correlationId?.let { put("correlationId", it) }
+                request.provider?.let { put("providerType", it.value) }
             }
 
             val response = request("POST", EMAILS_SEND_BULK_PATH, body)
