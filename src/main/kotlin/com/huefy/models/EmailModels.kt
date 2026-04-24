@@ -2,12 +2,9 @@ package com.huefy.models
 
 data class SendEmailRequest(
     val templateKey: String,
-    val recipient: String,
     val data: Map<String, String>,
-    val providerType: String? = null,
-    val fromEmail: String? = null,
-    val fromName: String? = null,
-    val correlationId: String? = null,
+    val recipient: String,
+    val provider: EmailProvider? = null,
 )
 
 data class RecipientStatus(
@@ -41,11 +38,7 @@ data class BulkRecipient(
 data class SendBulkEmailsRequest(
     val templateKey: String,
     val recipients: List<BulkRecipient>,
-    val fromEmail: String? = null,
-    val fromName: String? = null,
-    val providerType: String? = null,
-    val batchSize: Int? = null,
-    val correlationId: String? = null,
+    val provider: EmailProvider? = null,
 )
 
 data class SendBulkEmailsResponseData(
