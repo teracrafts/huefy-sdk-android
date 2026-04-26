@@ -45,7 +45,7 @@ object EmailValidators {
      * @param data the template data map to validate
      * @return an error message if invalid, or null if valid
      */
-    fun validateEmailData(data: Map<String, String>?): String? {
+    fun validateEmailData(data: Map<String, Any>?): String? {
         if (data == null) return "Template data is required"
         return null
     }
@@ -72,7 +72,7 @@ object EmailValidators {
      */
     fun validateSendEmailInput(
         templateKey: String?,
-        data: Map<String, String>?,
+        data: Map<String, Any>?,
         recipient: String?
     ): List<String> {
         return listOfNotNull(

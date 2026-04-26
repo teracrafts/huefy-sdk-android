@@ -2,7 +2,7 @@ package com.huefy.models
 
 data class SendEmailRequest(
     val templateKey: String,
-    val data: Map<String, String>,
+    val data: Map<String, Any>,
     val recipient: String,
     val provider: EmailProvider? = null,
 )
@@ -32,7 +32,7 @@ data class SendEmailResponse(
 data class BulkRecipient(
     val email: String,
     val type: String? = null,
-    val data: Map<String, String>? = null,
+    val data: Map<String, Any>? = null,
 )
 
 data class SendBulkEmailsRequest(

@@ -1,4 +1,4 @@
-# huefy-kotlin
+# huefy-sdk
 
 Official Kotlin SDK for [Huefy](https://huefy.dev) — transactional email delivery made simple.
 
@@ -8,7 +8,7 @@ In `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.huefy:huefy-kotlin:1.0.0")
+    implementation("com.teracrafts:huefy-sdk:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }
 ```
@@ -16,16 +16,15 @@ dependencies {
 ## Requirements
 
 - Kotlin 1.9+
-- JVM 11+
+- JVM 17+
 - `kotlinx-coroutines-core`
 
 ## Quick Start
 
 ```kotlin
-import com.huefy.HuefyEmailClient
-import com.huefy.HuefyConfig
-import com.huefy.model.Recipient
-import com.huefy.model.SendEmailRequest
+import com.huefy.client.HuefyEmailClient
+import com.huefy.config.HuefyConfig
+import com.huefy.models.SendEmailRequest
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
@@ -33,11 +32,11 @@ fun main() = runBlocking {
         val response = client.sendEmail(
             SendEmailRequest(
                 templateKey = "welcome-email",
-                recipient = Recipient(email = "alice@example.com", name = "Alice"),
-                variables = mapOf("firstName" to "Alice", "trialDays" to 14),
+                data = mapOf("firstName" to "Alice", "trialDays" to 14),
+                recipient = "alice@example.com",
             )
         )
-        println("Message ID: ${response.messageId}")
+        println("Email ID: ${response.data.emailId}")
     }
 }
 ```
@@ -77,15 +76,16 @@ fun main() = runBlocking {
 
 ```kotlin
 val bulk = client.sendBulkEmails(
-    BulkEmailRequest(
-        emails = listOf(
-            SendEmailRequest(templateKey = "promo", recipient = Recipient("bob@example.com")),
-            SendEmailRequest(templateKey = "promo", recipient = Recipient("carol@example.com")),
+    SendBulkEmailsRequest(
+        templateKey = "promo",
+        recipients = listOf(
+            BulkRecipient(email = "bob@example.com"),
+            BulkRecipient(email = "carol@example.com"),
         )
     )
 )
 
-println("Sent: ${bulk.totalSent}, Failed: ${bulk.totalFailed}")
+println("Sent: ${bulk.data.successCount}, Failed: ${bulk.data.failureCount}")
 ```
 
 ## Error Handling
@@ -125,14 +125,14 @@ try {
 
 ```kotlin
 val health = client.healthCheck()
-if (health.status != "healthy") {
-    println("Huefy degraded: ${health.status}")
+if (health.data.status != "healthy") {
+    println("Huefy degraded: ${health.data.status}")
 }
 ```
 
 ## Local Development
 
-Set `HUEFY_MODE=local` to point the SDK at a local Huefy server, or override `baseUrl` in config:
+The current Kotlin SDK does not resolve `HUEFY_MODE`. To target localhost, override `baseUrl` in config:
 
 ```kotlin
 val client = HuefyEmailClient(

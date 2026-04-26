@@ -44,6 +44,16 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
         private const val EMAILS_SEND_PATH = "/emails/send"
         private const val EMAILS_SEND_BULK_PATH = "/emails/send-bulk"
         private val logger = Logger.getLogger(HuefyEmailClient::class.java.name)
+
+        private fun JsonObjectBuilder.putDynamic(key: String, value: Any?) {
+            when (value) {
+                null -> put(key, JsonNull)
+                is String -> put(key, value)
+                is Number -> put(key, value)
+                is Boolean -> put(key, value)
+                else -> put(key, value.toString())
+            }
+        }
     }
 
     /**
@@ -74,7 +84,7 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                 put("templateKey", request.templateKey.trim())
                 put("recipient", request.recipient.trim())
                 putJsonObject("data") {
-                    request.data.forEach { (key, value) -> put(key, value) }
+                    request.data.forEach { (key, value) -> putDynamic(key, value) }
                 }
                 request.provider?.let { put("providerType", it.value) }
             }
@@ -150,7 +160,7 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                             r.type?.let { put("type", it) }
                             r.data?.let { d ->
                                 putJsonObject("data") {
-                                    d.forEach { (k, v) -> put(k, v) }
+                                    d.forEach { (k, v) -> putDynamic(k, v) }
                                 }
                             }
                         }
