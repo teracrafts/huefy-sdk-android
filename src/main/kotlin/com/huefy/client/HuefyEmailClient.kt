@@ -46,13 +46,29 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
         private val logger = Logger.getLogger(HuefyEmailClient::class.java.name)
 
         private fun JsonObjectBuilder.putDynamic(key: String, value: Any?) {
-            when (value) {
-                null -> put(key, JsonNull)
-                is String -> put(key, value)
-                is Number -> put(key, value)
-                is Boolean -> put(key, value)
-                else -> put(key, value.toString())
+            put(key, value.toJsonElement())
+        }
+
+        private fun Any?.toJsonElement(): JsonElement = when (this) {
+            null -> JsonNull
+            is JsonElement -> this
+            is String -> JsonPrimitive(this)
+            is Number -> JsonPrimitive(this)
+            is Boolean -> JsonPrimitive(this)
+            is Map<*, *> -> buildJsonObject {
+                this@toJsonElement.forEach { (nestedKey, nestedValue) ->
+                    if (nestedKey != null) {
+                        put(nestedKey.toString(), nestedValue.toJsonElement())
+                    }
+                }
             }
+            is Iterable<*> -> buildJsonArray {
+                this@toJsonElement.forEach { add(it.toJsonElement()) }
+            }
+            is Array<*> -> buildJsonArray {
+                this@toJsonElement.forEach { add(it.toJsonElement()) }
+            }
+            else -> JsonPrimitive(this.toString())
         }
     }
 
@@ -63,7 +79,9 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
      * @return the send email response
      */
     suspend fun sendEmail(request: SendEmailRequest): SendEmailResponse {
-        val errors = EmailValidators.validateSendEmailInput(request.templateKey, request.data, request.recipient)
+        val errors = request.recipientObject?.let {
+            EmailValidators.validateSendEmailRecipientInput(request.templateKey, request.data, it)
+        } ?: EmailValidators.validateSendEmailInput(request.templateKey, request.data, request.recipient)
         if (errors.isNotEmpty()) {
             throw HuefyException(
                 message = "Validation failed: ${errors.joinToString("; ")}",
@@ -73,16 +91,39 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
         }
 
         for ((key, value) in request.data) {
-            val piiTypes = Security.detectPii(value)
+            val piiTypes = Security.detectPii(
+                if (value is String) value else Json.encodeToString(JsonElement.serializer(), value.toJsonElement())
+            )
             if (piiTypes.isNotEmpty()) {
                 logger.warning("Potential PII detected in template data field '$key': $piiTypes.")
+            }
+        }
+        request.recipientObject?.data?.forEach { (key, value) ->
+            val piiTypes = Security.detectPii(
+                if (value is String) value else Json.encodeToString(JsonElement.serializer(), value.toJsonElement())
+            )
+            if (piiTypes.isNotEmpty()) {
+                logger.warning("Potential PII detected in recipient data field '$key': $piiTypes.")
             }
         }
 
         return try {
             val body = buildJsonObject {
                 put("templateKey", request.templateKey.trim())
-                put("recipient", request.recipient.trim())
+                val recipientObject = request.recipientObject
+                if (recipientObject != null) {
+                    putJsonObject("recipient") {
+                        put("email", recipientObject.email.trim())
+                        recipientObject.type?.takeIf { it.isNotBlank() }?.let { put("type", it.trim().lowercase()) }
+                        recipientObject.data?.let { recipientData ->
+                            putJsonObject("data") {
+                                recipientData.forEach { (key, value) -> putDynamic(key, value) }
+                            }
+                        }
+                    }
+                } else {
+                    put("recipient", request.recipient!!.trim())
+                }
                 putJsonObject("data") {
                     request.data.forEach { (key, value) -> putDynamic(key, value) }
                 }
@@ -184,6 +225,15 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                     sentAt = rObj["sentAt"]?.jsonPrimitive?.contentOrNull,
                 )
             } ?: emptyList()
+            val errors = dataNode["errors"]?.jsonArray?.map { errorNode ->
+                val errorObj = errorNode.jsonObject
+                EmailError(
+                    code = errorObj["code"]?.jsonPrimitive?.contentOrNull ?: "",
+                    message = errorObj["message"]?.jsonPrimitive?.contentOrNull ?: "",
+                    recipient = errorObj["recipient"]?.jsonPrimitive?.contentOrNull,
+                    details = errorObj["details"]?.jsonObject?.toMap(),
+                )
+            } ?: emptyList()
 
             SendBulkEmailsResponse(
                 success = response["success"]?.jsonPrimitive?.booleanOrNull ?: false,
@@ -191,6 +241,9 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                     batchId = dataNode["batchId"]?.jsonPrimitive?.contentOrNull ?: "",
                     status = dataNode["status"]?.jsonPrimitive?.contentOrNull ?: "",
                     templateKey = dataNode["templateKey"]?.jsonPrimitive?.contentOrNull ?: "",
+                    templateVersion = dataNode["templateVersion"]?.jsonPrimitive?.intOrNull ?: 0,
+                    senderUsed = dataNode["senderUsed"]?.jsonPrimitive?.contentOrNull ?: "",
+                    senderVerified = dataNode["senderVerified"]?.jsonPrimitive?.booleanOrNull ?: false,
                     totalRecipients = dataNode["totalRecipients"]?.jsonPrimitive?.intOrNull ?: 0,
                     processedCount = dataNode["processedCount"]?.jsonPrimitive?.intOrNull ?: 0,
                     successCount = dataNode["successCount"]?.jsonPrimitive?.intOrNull ?: 0,
@@ -199,6 +252,8 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                     startedAt = dataNode["startedAt"]?.jsonPrimitive?.contentOrNull ?: "",
                     completedAt = dataNode["completedAt"]?.jsonPrimitive?.contentOrNull,
                     recipients = recipientsList,
+                    errors = errors,
+                    metadata = dataNode["metadata"]?.jsonObject?.toMap(),
                 ),
                 correlationId = response["correlationId"]?.jsonPrimitive?.contentOrNull ?: "",
             )

@@ -1,5 +1,7 @@
 package com.huefy.validators
 
+import com.huefy.models.SendEmailRecipient
+
 /**
  * Validators for email-related inputs.
  *
@@ -9,6 +11,7 @@ package com.huefy.validators
 object EmailValidators {
 
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+    private val VALID_RECIPIENT_TYPES = setOf("to", "cc", "bcc")
     private const val MAX_EMAIL_LENGTH = 254
     private const val MAX_TEMPLATE_KEY_LENGTH = 100
     private const val MAX_BULK_EMAILS = 1000
@@ -79,6 +82,29 @@ object EmailValidators {
             validateTemplateKey(templateKey),
             validateEmailData(data),
             validateEmail(recipient)
+        )
+    }
+
+    fun validateRecipient(recipient: SendEmailRecipient?): String? {
+        if (recipient == null) return "Recipient email is required"
+        val emailErr = validateEmail(recipient.email)
+        if (emailErr != null) return emailErr
+        val recipientType = recipient.type?.trim()?.lowercase()
+        if (!recipientType.isNullOrEmpty() && recipientType !in VALID_RECIPIENT_TYPES) {
+            return "Recipient type must be one of: to, cc, bcc"
+        }
+        return null
+    }
+
+    fun validateSendEmailRecipientInput(
+        templateKey: String?,
+        data: Map<String, Any>?,
+        recipient: SendEmailRecipient?
+    ): List<String> {
+        return listOfNotNull(
+            validateTemplateKey(templateKey),
+            validateEmailData(data),
+            validateRecipient(recipient)
         )
     }
 }

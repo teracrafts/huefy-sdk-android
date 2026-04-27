@@ -18,6 +18,7 @@ dependencies {
 - Kotlin 1.9+
 - JVM 17+
 - `kotlinx-coroutines-core`
+- Gradle 9.4.1 wrapper is included for local verification (`./gradlew test`)
 
 ## Quick Start
 
@@ -91,22 +92,13 @@ println("Sent: ${bulk.data.successCount}, Failed: ${bulk.data.failureCount}")
 ## Error Handling
 
 ```kotlin
-import com.huefy.exception.HuefyAuthException
-import com.huefy.exception.HuefyRateLimitException
-import com.huefy.exception.HuefyCircuitOpenException
-import com.huefy.exception.HuefyException
+import com.huefy.errors.HuefyException
 
 try {
     val response = client.sendEmail(request)
-    println("Delivered: ${response.messageId}")
-} catch (e: HuefyAuthException) {
-    println("Invalid API key")
-} catch (e: HuefyRateLimitException) {
-    println("Rate limited. Retry after ${e.retryAfter}s")
-} catch (e: HuefyCircuitOpenException) {
-    println("Circuit open — service unavailable, backing off")
+    println("Delivered: ${response.data.emailId}")
 } catch (e: HuefyException) {
-    println("Huefy error [${e.code}]: ${e.message}")
+    println("Huefy error [${e.errorCode}]: ${e.message}")
 }
 ```
 
@@ -132,15 +124,21 @@ if (health.data.status != "healthy") {
 
 ## Local Development
 
-The current Kotlin SDK does not resolve `HUEFY_MODE`. To target localhost, override `baseUrl` in config:
+`HUEFY_MODE=local` resolves to `https://api.huefy.on/api/v1/sdk`. To bypass Caddy and hit the raw app port directly, override `baseUrl` to `http://localhost:8080/api/v1/sdk`:
 
 ```kotlin
 val client = HuefyEmailClient(
     HuefyConfig(
         apiKey = "sdk_local_key",
-        baseUrl = "http://localhost:3000/api/v1/sdk",
+        baseUrl = "https://api.huefy.on/api/v1/sdk",
     )
 )
+```
+
+For repository-local verification, prefer the checked-in wrapper:
+
+```bash
+./gradlew test
 ```
 
 ## Developer Guide

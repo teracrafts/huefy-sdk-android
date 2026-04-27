@@ -16,5 +16,5 @@ gradle lab
 4. Error sanitization — PII patterns redacted
 5. PII detection — email/ssn identified
 6. Circuit breaker state — new breaker starts CLOSED
-7. Health check — GET /health (PASS regardless of network)
+7. Health check — invoke `GET /health` against the configured base URL
 8. Cleanup — close client, no exception

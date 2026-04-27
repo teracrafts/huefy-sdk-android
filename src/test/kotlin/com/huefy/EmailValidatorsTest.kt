@@ -1,5 +1,6 @@
 package com.huefy
 
+import com.huefy.models.SendEmailRecipient
 import com.huefy.validators.EmailValidators
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -128,6 +129,11 @@ class EmailValidatorsTest {
     }
 
     @Test
+    fun `validateBulkCount accepts count of 1000`() {
+        assertNull(EmailValidators.validateBulkCount(1000))
+    }
+
+    @Test
     fun `validateBulkCount rejects zero`() {
         val result = EmailValidators.validateBulkCount(0)
         assertNotNull(result)
@@ -142,10 +148,10 @@ class EmailValidatorsTest {
     }
 
     @Test
-    fun `validateBulkCount rejects count exceeding 100`() {
-        val result = EmailValidators.validateBulkCount(101)
+    fun `validateBulkCount rejects count exceeding 1000`() {
+        val result = EmailValidators.validateBulkCount(1001)
         assertNotNull(result)
-        assertTrue(result.contains("Maximum of 100"))
+        assertTrue(result.contains("Maximum of 1000"))
     }
 
     // --- validateSendEmailInput ---
@@ -179,5 +185,36 @@ class EmailValidatorsTest {
             "", null, "john@example.com"
         )
         assertEquals(2, errors.size)
+    }
+
+    @Test
+    fun `validateSendEmailInput accepts recipient object`() {
+        val errors = EmailValidators.validateSendEmailRecipientInput(
+            "welcome",
+            mapOf("name" to "John"),
+            SendEmailRecipient(email = "john@example.com", type = "cc", data = mapOf("plan" to "pro"))
+        )
+        assertTrue(errors.isEmpty())
+    }
+
+    @Test
+    fun `validateSendEmailInput rejects invalid recipient object email`() {
+        val errors = EmailValidators.validateSendEmailRecipientInput(
+            "welcome",
+            mapOf("name" to "John"),
+            SendEmailRecipient(email = "bad", type = "cc")
+        )
+        assertEquals(1, errors.size)
+        assertTrue(errors[0].startsWith("Invalid email address"))
+    }
+
+    @Test
+    fun `validateSendEmailInput rejects invalid recipient object type`() {
+        val errors = EmailValidators.validateSendEmailRecipientInput(
+            "welcome",
+            mapOf("name" to "John"),
+            SendEmailRecipient(email = "user@example.com", type = "weird")
+        )
+        assertEquals(listOf("Recipient type must be one of: to, cc, bcc"), errors)
     }
 }

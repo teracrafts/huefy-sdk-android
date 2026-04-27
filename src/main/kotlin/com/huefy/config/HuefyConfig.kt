@@ -38,10 +38,13 @@ data class HuefyConfig(
 ) {
     /**
      * Resolves the effective base URL.
-     * Uses [baseUrl] if provided, otherwise falls back to the default API URL.
+     * Uses [baseUrl] if provided, otherwise resolves from `HUEFY_MODE`.
      */
     fun resolvedBaseUrl(): String {
-        return baseUrl ?: "https://api.huefy.dev/api/v1/sdk"
+        return baseUrl ?: when (System.getenv("HUEFY_MODE")?.lowercase()) {
+            "local" -> "https://api.huefy.on/api/v1/sdk"
+            else -> "https://api.huefy.dev/api/v1/sdk"
+        }
     }
 
     init {

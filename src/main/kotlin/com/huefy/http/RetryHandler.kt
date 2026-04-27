@@ -75,6 +75,6 @@ class RetryHandler(private val config: RetryConfig) {
         val exponentialDelay = config.baseDelayMs * (1L shl attempt.coerceAtMost(30))
         val cappedDelay = min(exponentialDelay, config.maxDelayMs)
         val jitterFactor = 0.8 + Random.nextDouble() * 0.4
-        return (cappedDelay * jitterFactor).toLong()
+        return min((cappedDelay * jitterFactor).toLong(), config.maxDelayMs)
     }
 }
