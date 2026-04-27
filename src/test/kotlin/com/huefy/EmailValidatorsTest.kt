@@ -1,5 +1,6 @@
 package com.huefy
 
+import com.huefy.models.BulkRecipient
 import com.huefy.models.SendEmailRecipient
 import com.huefy.validators.EmailValidators
 import kotlin.test.Test
@@ -216,5 +217,13 @@ class EmailValidatorsTest {
             SendEmailRecipient(email = "user@example.com", type = "weird")
         )
         assertEquals(listOf("Recipient type must be one of: to, cc, bcc"), errors)
+    }
+
+    @Test
+    fun `validateBulkRecipient rejects invalid recipient type`() {
+        val error = EmailValidators.validateBulkRecipient(
+            BulkRecipient(email = "user@example.com", type = "reply-to")
+        )
+        assertEquals("Recipient type must be one of: to, cc, bcc", error)
     }
 }

@@ -79,9 +79,13 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
      * @return the send email response
      */
     suspend fun sendEmail(request: SendEmailRequest): SendEmailResponse {
-        val errors = request.recipientObject?.let {
-            EmailValidators.validateSendEmailRecipientInput(request.templateKey, request.data, it)
-        } ?: EmailValidators.validateSendEmailInput(request.templateKey, request.data, request.recipient)
+        val errors = when {
+            request.recipientObject != null ->
+                EmailValidators.validateSendEmailRecipientInput(request.templateKey, request.data, request.recipientObject)
+            request.recipient != null ->
+                EmailValidators.validateSendEmailInput(request.templateKey, request.data, request.recipient)
+            else -> listOf("Recipient email is required")
+        }
         if (errors.isNotEmpty()) {
             throw HuefyException(
                 message = "Validation failed: ${errors.joinToString("; ")}",
@@ -122,7 +126,13 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                         }
                     }
                 } else {
-                    put("recipient", request.recipient!!.trim())
+                    val recipient = request.recipient
+                        ?: throw HuefyException(
+                            message = "Recipient email is required",
+                            errorCode = ErrorCode.VALIDATION_ERROR,
+                            recoverable = false
+                        )
+                    put("recipient", recipient.trim())
                 }
                 putJsonObject("data") {
                     request.data.forEach { (key, value) -> putDynamic(key, value) }
@@ -180,11 +190,20 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
             )
         }
 
+        val templateError = EmailValidators.validateTemplateKey(request.templateKey)
+        if (templateError != null) {
+            throw HuefyException(
+                message = templateError,
+                errorCode = ErrorCode.VALIDATION_ERROR,
+                recoverable = false
+            )
+        }
+
         request.recipients.forEachIndexed { i, r ->
-            val emailErr = EmailValidators.validateEmail(r.email)
-            if (emailErr != null) {
+            val recipientErr = EmailValidators.validateBulkRecipient(r)
+            if (recipientErr != null) {
                 throw HuefyException(
-                    message = "recipients[$i]: $emailErr",
+                    message = "recipients[$i]: $recipientErr",
                     errorCode = ErrorCode.VALIDATION_ERROR,
                     recoverable = false
                 )
@@ -197,8 +216,8 @@ class HuefyEmailClient(config: HuefyConfig) : HuefyClient(config) {
                 putJsonArray("recipients") {
                     request.recipients.forEach { r ->
                         addJsonObject {
-                            put("email", r.email)
-                            r.type?.let { put("type", it) }
+                            put("email", r.email.trim())
+                            r.type?.trim()?.takeIf(String::isNotEmpty)?.lowercase()?.let { put("type", it) }
                             r.data?.let { d ->
                                 putJsonObject("data") {
                                     d.forEach { (k, v) -> putDynamic(k, v) }

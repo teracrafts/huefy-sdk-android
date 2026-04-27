@@ -1,5 +1,6 @@
 package com.huefy.validators
 
+import com.huefy.models.BulkRecipient
 import com.huefy.models.SendEmailRecipient
 
 /**
@@ -86,6 +87,17 @@ object EmailValidators {
     }
 
     fun validateRecipient(recipient: SendEmailRecipient?): String? {
+        if (recipient == null) return "Recipient email is required"
+        val emailErr = validateEmail(recipient.email)
+        if (emailErr != null) return emailErr
+        val recipientType = recipient.type?.trim()?.lowercase()
+        if (!recipientType.isNullOrEmpty() && recipientType !in VALID_RECIPIENT_TYPES) {
+            return "Recipient type must be one of: to, cc, bcc"
+        }
+        return null
+    }
+
+    fun validateBulkRecipient(recipient: BulkRecipient?): String? {
         if (recipient == null) return "Recipient email is required"
         val emailErr = validateEmail(recipient.email)
         if (emailErr != null) return emailErr
