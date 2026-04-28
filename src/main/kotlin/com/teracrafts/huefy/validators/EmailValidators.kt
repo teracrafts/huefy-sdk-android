@@ -1,7 +1,7 @@
-package com.huefy.validators
+package com.teracrafts.huefy.validators
 
-import com.huefy.models.BulkRecipient
-import com.huefy.models.SendEmailRecipient
+import com.teracrafts.huefy.models.BulkRecipient
+import com.teracrafts.huefy.models.SendEmailRecipient
 
 /**
  * Validators for email-related inputs.

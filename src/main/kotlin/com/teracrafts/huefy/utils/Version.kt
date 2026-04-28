@@ -1,4 +1,4 @@
-package com.huefy.utils
+package com.teracrafts.huefy.utils
 
 /**
  * Version information for the Huefy SDK.

@@ -57,7 +57,7 @@ tasks.register<JavaExec>("lab") {
     group = "verification"
     description = "Run the SDK lab verification suite"
     classpath = sourceSets["lab"].runtimeClasspath
-    mainClass.set("com.huefy.lab.SdkLabKt")
+    mainClass.set("com.teracrafts.huefy.lab.SdkLabKt")
 }
 
 publishing {

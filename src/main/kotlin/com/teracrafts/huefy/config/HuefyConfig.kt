@@ -1,4 +1,4 @@
-package com.huefy.config
+package com.teracrafts.huefy.config
 
 import kotlinx.serialization.Serializable
 import java.time.Instant

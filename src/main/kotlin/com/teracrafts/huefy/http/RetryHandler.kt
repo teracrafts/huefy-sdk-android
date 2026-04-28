@@ -1,7 +1,7 @@
-package com.huefy.http
+package com.teracrafts.huefy.http
 
-import com.huefy.config.RetryConfig
-import com.huefy.errors.HuefyException
+import com.teracrafts.huefy.config.RetryConfig
+import com.teracrafts.huefy.errors.HuefyException
 import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlin.random.Random

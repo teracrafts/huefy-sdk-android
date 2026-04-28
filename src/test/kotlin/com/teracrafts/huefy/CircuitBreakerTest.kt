@@ -1,9 +1,9 @@
-package com.huefy
+package com.teracrafts.huefy
 
-import com.huefy.config.CircuitBreakerConfig
-import com.huefy.errors.ErrorCode
-import com.huefy.errors.HuefyException
-import com.huefy.http.CircuitBreaker
+import com.teracrafts.huefy.config.CircuitBreakerConfig
+import com.teracrafts.huefy.errors.ErrorCode
+import com.teracrafts.huefy.errors.HuefyException
+import com.teracrafts.huefy.http.CircuitBreaker
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals

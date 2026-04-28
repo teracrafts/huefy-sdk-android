@@ -1,4 +1,4 @@
-package com.huefy.errors
+package com.teracrafts.huefy.errors
 
 /**
  * Enumeration of all error codes used by the Huefy SDK.

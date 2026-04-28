@@ -1,4 +1,4 @@
-package com.huefy.models
+package com.teracrafts.huefy.models
 
 enum class EmailProvider(val value: String) {
     SES("ses"),

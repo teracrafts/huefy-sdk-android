@@ -1,9 +1,9 @@
-package com.huefy
+package com.teracrafts.huefy
 
-import com.huefy.config.HuefyConfig
-import com.huefy.client.HuefyEmailClient
-import com.huefy.errors.HuefyException
-import com.huefy.models.SendEmailRequest
+import com.teracrafts.huefy.config.HuefyConfig
+import com.teracrafts.huefy.client.HuefyEmailClient
+import com.teracrafts.huefy.errors.HuefyException
+import com.teracrafts.huefy.models.SendEmailRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

@@ -1,7 +1,7 @@
-package com.huefy.http
+package com.teracrafts.huefy.http
 
-import com.huefy.config.CircuitBreakerConfig
-import com.huefy.errors.HuefyException
+import com.teracrafts.huefy.config.CircuitBreakerConfig
+import com.teracrafts.huefy.errors.HuefyException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

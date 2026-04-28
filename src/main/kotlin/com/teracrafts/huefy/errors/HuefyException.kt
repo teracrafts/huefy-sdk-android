@@ -1,4 +1,4 @@
-package com.huefy.errors
+package com.teracrafts.huefy.errors
 
 /**
  * Base exception for all Huefy SDK errors.

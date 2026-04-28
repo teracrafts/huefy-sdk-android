@@ -1,11 +1,11 @@
-package com.huefy.client
+package com.teracrafts.huefy.client
 
-import com.huefy.config.HuefyConfig
-import com.huefy.errors.ErrorCode
-import com.huefy.errors.HuefyException
-import com.huefy.models.*
-import com.huefy.security.Security
-import com.huefy.validators.EmailValidators
+import com.teracrafts.huefy.config.HuefyConfig
+import com.teracrafts.huefy.errors.ErrorCode
+import com.teracrafts.huefy.errors.HuefyException
+import com.teracrafts.huefy.models.*
+import com.teracrafts.huefy.security.Security
+import com.teracrafts.huefy.validators.EmailValidators
 import kotlinx.serialization.json.*
 import java.util.logging.Logger
 

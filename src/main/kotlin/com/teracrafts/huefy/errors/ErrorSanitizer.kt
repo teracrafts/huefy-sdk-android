@@ -1,4 +1,4 @@
-package com.huefy.errors
+package com.teracrafts.huefy.errors
 
 /**
  * Sanitizes error messages and context data to remove PII and sensitive

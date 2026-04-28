@@ -1,4 +1,4 @@
-package com.huefy.models
+package com.teracrafts.huefy.models
 
 import kotlinx.serialization.json.JsonElement
 

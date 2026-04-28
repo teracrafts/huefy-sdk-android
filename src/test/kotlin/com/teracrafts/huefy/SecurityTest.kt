@@ -1,6 +1,6 @@
-package com.huefy
+package com.teracrafts.huefy
 
-import com.huefy.security.Security
+import com.teracrafts.huefy.security.Security
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

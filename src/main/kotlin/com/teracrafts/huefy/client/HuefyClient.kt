@@ -1,12 +1,12 @@
-package com.huefy.client
+package com.teracrafts.huefy.client
 
-import com.huefy.config.HuefyConfig
-import com.huefy.errors.ErrorCode
-import com.huefy.errors.HuefyException
-import com.huefy.http.HttpClient
-import com.huefy.models.HealthResponse
-import com.huefy.models.HealthResponseData
-import com.huefy.utils.Version
+import com.teracrafts.huefy.config.HuefyConfig
+import com.teracrafts.huefy.errors.ErrorCode
+import com.teracrafts.huefy.errors.HuefyException
+import com.teracrafts.huefy.http.HttpClient
+import com.teracrafts.huefy.models.HealthResponse
+import com.teracrafts.huefy.models.HealthResponseData
+import com.teracrafts.huefy.utils.Version
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject

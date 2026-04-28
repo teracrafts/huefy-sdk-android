@@ -1,8 +1,8 @@
-package com.huefy
+package com.teracrafts.huefy
 
-import com.huefy.models.BulkRecipient
-import com.huefy.models.SendEmailRecipient
-import com.huefy.validators.EmailValidators
+import com.teracrafts.huefy.models.BulkRecipient
+import com.teracrafts.huefy.models.SendEmailRecipient
+import com.teracrafts.huefy.validators.EmailValidators
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

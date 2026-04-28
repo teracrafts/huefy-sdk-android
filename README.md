@@ -23,9 +23,9 @@ dependencies {
 ## Quick Start
 
 ```kotlin
-import com.huefy.client.HuefyEmailClient
-import com.huefy.config.HuefyConfig
-import com.huefy.models.SendEmailRequest
+import com.teracrafts.huefy.client.HuefyEmailClient
+import com.teracrafts.huefy.config.HuefyConfig
+import com.teracrafts.huefy.models.SendEmailRequest
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
@@ -92,7 +92,7 @@ println("Sent: ${bulk.data.successCount}, Failed: ${bulk.data.failureCount}")
 ## Error Handling
 
 ```kotlin
-import com.huefy.errors.HuefyException
+import com.teracrafts.huefy.errors.HuefyException
 
 try {
     val response = client.sendEmail(request)

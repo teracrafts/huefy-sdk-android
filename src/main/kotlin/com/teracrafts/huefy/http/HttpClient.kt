@@ -1,12 +1,12 @@
-package com.huefy.http
+package com.teracrafts.huefy.http
 
-import com.huefy.config.HuefyConfig
-import com.huefy.config.RateLimitInfo
-import com.huefy.errors.ErrorCode
-import com.huefy.errors.ErrorSanitizer
-import com.huefy.errors.HuefyException
-import com.huefy.security.Security
-import com.huefy.utils.Version
+import com.teracrafts.huefy.config.HuefyConfig
+import com.teracrafts.huefy.config.RateLimitInfo
+import com.teracrafts.huefy.errors.ErrorCode
+import com.teracrafts.huefy.errors.ErrorSanitizer
+import com.teracrafts.huefy.errors.HuefyException
+import com.teracrafts.huefy.security.Security
+import com.teracrafts.huefy.utils.Version
 import java.time.Instant
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*

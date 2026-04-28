@@ -1,4 +1,4 @@
-package com.huefy.security
+package com.teracrafts.huefy.security
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
