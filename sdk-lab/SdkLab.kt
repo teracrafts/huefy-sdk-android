@@ -32,6 +32,23 @@ fun main() = runBlocking {
     println("=== Huefy Kotlin SDK Lab ===")
     println()
 
+    if (isLiveMode()) {
+        runLiveLab()
+
+        println()
+        println("========================================")
+        println("Results: $passed passed, $failed failed")
+        println("========================================")
+        println()
+
+        if (failed == 0) {
+            println("All verifications passed!")
+        } else {
+            System.exit(1)
+        }
+        return@runBlocking
+    }
+
     StubServer().use { server ->
         server.start()
 
@@ -64,6 +81,119 @@ fun main() = runBlocking {
         println("All verifications passed!")
     } else {
         System.exit(1)
+    }
+}
+
+private fun isLiveMode(): Boolean =
+    System.getenv("HUEFY_SDK_LAB_MODE")?.equals("live", ignoreCase = true) == true
+
+private fun requireEnv(name: String): String =
+    System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: error("$name is required in live mode")
+
+private fun resolveLiveProvider(): EmailProvider? =
+    when (System.getenv("HUEFY_SDK_LIVE_PROVIDER")?.trim()?.lowercase()) {
+        "sendgrid" -> EmailProvider.SENDGRID
+        "ses" -> EmailProvider.SES
+        "mailgun" -> EmailProvider.MAILGUN
+        else -> null
+    }
+
+private suspend fun runLiveLab() {
+    val client = runCatching {
+        HuefyEmailClient(
+            HuefyConfig(
+                apiKey = requireEnv("HUEFY_SDK_LIVE_API_KEY"),
+                baseUrl = requireEnv("HUEFY_SDK_LIVE_BASE_URL"),
+                timeout = 10_000L,
+                retryConfig = RetryConfig(maxRetries = 0, baseDelayMs = 50, maxDelayMs = 50),
+            )
+        )
+    }.onSuccess {
+        pass("Initialization")
+    }.onFailure { error ->
+        fail("Initialization", error.message ?: "unknown error")
+    }.getOrNull() ?: return
+
+    val recipient = requireEnv("HUEFY_SDK_LIVE_RECIPIENT")
+    val templateKey = requireEnv("HUEFY_SDK_LIVE_TEMPLATE_KEY")
+    val provider = resolveLiveProvider()
+
+    runCatching {
+        val response = client.sendEmail(
+            SendEmailRequest(
+                templateKey = templateKey,
+                data = mapOf("FirstName" to "SDK Live"),
+                recipient = recipient,
+                provider = provider,
+            )
+        )
+        require(response.success) { "expected successful live send" }
+    }.onSuccess {
+        pass("Single-send live behavior")
+    }.onFailure { error ->
+        fail("Single-send live behavior", error.message ?: "unknown error")
+    }
+
+    runCatching {
+        val response = client.sendBulkEmails(
+            SendBulkEmailsRequest(
+                templateKey = templateKey,
+                recipients = listOf(BulkRecipient(email = recipient, type = "TO")),
+                provider = provider,
+            )
+        )
+        require(response.success && response.data.totalRecipients >= 1) { "expected successful live bulk send" }
+    }.onSuccess {
+        pass("Bulk-send live behavior")
+    }.onFailure { error ->
+        fail("Bulk-send live behavior", error.message ?: "unknown error")
+    }
+
+    runCatching {
+        client.sendEmail(
+            SendEmailRequest(
+                templateKey = templateKey,
+                data = emptyMap<String, Any>(),
+                recipient = "bad-email",
+            )
+        )
+        error("expected validation failure")
+    }.onSuccess {
+        fail("Invalid single rejection", "expected validation failure")
+    }.onFailure {
+        pass("Invalid single rejection")
+    }
+
+    runCatching {
+        client.sendBulkEmails(
+            SendBulkEmailsRequest(
+                templateKey = templateKey,
+                recipients = listOf(BulkRecipient(email = "bad-email", type = "reply-to")),
+            )
+        )
+        error("expected validation failure")
+    }.onSuccess {
+        fail("Invalid bulk rejection", "expected validation failure")
+    }.onFailure {
+        pass("Invalid bulk rejection")
+    }
+
+    runCatching {
+        val health = client.healthCheck()
+        require(health.data.status == "healthy") { "unexpected health status ${health.data.status}" }
+    }.onSuccess {
+        pass("Health request path behavior")
+    }.onFailure { error ->
+        fail("Health request path behavior", error.message ?: "unknown error")
+    }
+
+    runCatching {
+        client.close()
+    }.onSuccess {
+        pass("Cleanup")
+    }.onFailure { error ->
+        fail("Cleanup", error.message ?: "unknown error")
     }
 }
 
