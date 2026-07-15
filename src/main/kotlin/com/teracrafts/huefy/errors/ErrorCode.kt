@@ -34,6 +34,9 @@ enum class ErrorCode(val numericCode: Int) {
     /** The API rate limit has been exceeded. */
     RATE_LIMIT_ERROR(3002),
 
+    /** The account or organization has exhausted its quota. */
+    INSUFFICIENT_QUOTA(3003),
+
     /** A server-side error occurred. */
     SERVER_ERROR(4001),
 

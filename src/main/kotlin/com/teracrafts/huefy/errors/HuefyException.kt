@@ -141,6 +141,13 @@ class HuefyException(
                     recoverable = false,
                     requestId = requestId
                 )
+                402 -> HuefyException(
+                    message = message,
+                    errorCode = ErrorCode.INSUFFICIENT_QUOTA,
+                    statusCode = 402,
+                    recoverable = false,
+                    requestId = requestId
+                )
                 429 -> HuefyException(
                     message = "Rate limit exceeded",
                     errorCode = ErrorCode.RATE_LIMIT_ERROR,
