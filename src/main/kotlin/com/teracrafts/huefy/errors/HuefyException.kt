@@ -1,5 +1,9 @@
 package com.teracrafts.huefy.errors
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 /**
  * Base exception for all Huefy SDK errors.
  *
@@ -29,6 +33,8 @@ class HuefyException(
     }
 
     companion object {
+        private val json = Json { ignoreUnknownKeys = true }
+
         /**
          * Creates an exception for network-related errors.
          */
@@ -119,6 +125,16 @@ class HuefyException(
          * Creates an exception from an HTTP status code.
          */
         fun fromStatusCode(statusCode: Int, message: String, requestId: String? = null): HuefyException {
+            if (hasBackendCode(message, "INSUFFICIENT_QUOTA")) {
+                return HuefyException(
+                    message = message,
+                    errorCode = ErrorCode.INSUFFICIENT_QUOTA,
+                    statusCode = statusCode,
+                    recoverable = false,
+                    requestId = requestId
+                )
+            }
+
             return when (statusCode) {
                 401 -> HuefyException(
                     message = message,
@@ -170,6 +186,15 @@ class HuefyException(
                     requestId = requestId
                 )
             }
+        }
+
+        private fun hasBackendCode(message: String, expectedCode: String): Boolean {
+            return runCatching {
+                json.parseToJsonElement(message)
+                    .jsonObject["code"]
+                    ?.jsonPrimitive
+                    ?.content == expectedCode
+            }.getOrDefault(false)
         }
     }
 }

@@ -92,13 +92,18 @@ println("Sent: ${bulk.data.successCount}, Failed: ${bulk.data.failureCount}")
 ## Error Handling
 
 ```kotlin
+import com.teracrafts.huefy.errors.ErrorCode
 import com.teracrafts.huefy.errors.HuefyException
 
 try {
     val response = client.sendEmail(request)
     println("Delivered: ${response.data.emailId}")
 } catch (e: HuefyException) {
-    println("Huefy error [${e.errorCode}]: ${e.message}")
+    if (e.errorCode == ErrorCode.INSUFFICIENT_QUOTA) {
+        println("Quota exhausted. Upgrade or wait for the next billing period")
+    } else {
+        println("Huefy error [${e.errorCode}]: ${e.message}")
+    }
 }
 ```
 
@@ -108,6 +113,7 @@ try {
 |-----------|------|---------|
 | `HuefyInitException` | 1001 | Client failed to initialise |
 | `HuefyAuthException` | 1102 | API key rejected |
+| `HuefyException` | `INSUFFICIENT_QUOTA` | Account or organization quota exhausted |
 | `HuefyNetworkException` | 1201 | Upstream request failed |
 | `HuefyCircuitOpenException` | 1301 | Circuit breaker tripped |
 | `HuefyRateLimitException` | 2003 | Rate limit exceeded |

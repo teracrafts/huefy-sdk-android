@@ -24,4 +24,20 @@ class HuefyExceptionTest {
         assertFalse(exception.recoverable)
         assertTrue(exception.message.orEmpty().contains("Quota exceeded"))
     }
+
+    @Test
+    fun `fromStatusCode maps backend insufficient quota code to non recoverable quota error`() {
+        val exception = HuefyException.fromStatusCode(
+            500,
+            """{"error":"Quota exhausted","code":"INSUFFICIENT_QUOTA"}""",
+            "req_500"
+        )
+
+        assertEquals(ErrorCode.INSUFFICIENT_QUOTA, exception.errorCode)
+        assertEquals(3003, exception.errorCode.numericCode)
+        assertEquals(500, exception.statusCode)
+        assertEquals("req_500", exception.requestId)
+        assertFalse(exception.recoverable)
+        assertTrue(exception.message.orEmpty().contains("Quota exhausted"))
+    }
 }
